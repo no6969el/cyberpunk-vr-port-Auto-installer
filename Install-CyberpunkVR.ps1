@@ -1,29 +1,35 @@
 <#
 .SYNOPSIS
-    One-click installer for the Cyberpunk 2077 VR Port v0.2.1+ (Nexus mod 30093) and all of its
+    One-click installer for the Cyberpunk 2077 VR Port v0.2.2+ (Nexus mod 30093) and all of its
     required dependencies for Cyberpunk 2077 v2.5.
 
 .DESCRIPTION
-    Finds your Cyberpunk 2077 installation, cleans up legacy VR port files from older versions
-    (<= 0.1.9), downloads every dependency published on GitHub (RED4ext, Cyber Engine Tweaks,
-    redscript, TweakXL, ArchiveXL, Codeware, Input Loader, Equipment-EX) plus the VR port itself
-    (v0.2.1+), and installs them into the game folder.
+    Finds your Cyberpunk 2077 installation, cleans up legacy VR port files and incompatible scripts
+    (including More Occluders which fails to compile on Cyberpunk 2.5), downloads every dependency
+    published on GitHub (RED4ext and optional frameworks like CET, redscript, TweakXL, ArchiveXL,
+    Codeware, Input Loader) plus the VR port itself (v0.2.2+), and installs them into the game folder.
 
-    Three companion mods are distributed on Nexus Mods (Visual Holsters, Nova Optics, and
-    More Occluders Scripted v0.3). Nexus only hands out direct download links to Premium
-    accounts, so:
-      * If you supply a Nexus API key from a Premium account, those are downloaded
-        automatically too.
-      * Otherwise the script opens each mod page in your browser, you click "Manual
-        Download", and the script picks the archive up out of your Downloads folder and
-        installs it for you.
-      * Or you can pre-download them yourself and drop the archives into the
-        "ManualDownloads" folder next to this script.
+    Seamless upgrade from v0.2.1 (and older versions):
+      * Automatically removes and backs up More Occluders (r6\scripts\MoreOccluders.reds) because
+        it fails to compile on CP2077 2.5 and would otherwise disable all redscript mods.
+      * Retires superseded Visual Holsters files in favor of the VR Port's native immersive holsters.
+      * Retires legacy folders (CyberpunkVR_Stereo, CyberpunkVR_Hands, bin\x64\dxgi.dll, etc.).
+      * Preserves existing VRIK calibration and user settings (vrik_calibration.ini, vrport.ini).
+
+    Zero required Nexus downloads:
+      * In VR Port v0.2.2+, Visual Holsters, Equipment-EX, Nova Optics, and More Occluders are
+        NO LONGER REQUIREMENTS. The port includes native immersive holsters (weapons hang on V's
+        body and draw with natural reach), native optics, weapon placement badges, and belt slots.
+      * By default, the installer runs 100% automatically via GitHub with no browser popups or
+        Nexus account required.
+      * [Valentino Holsters](https://www.nexusmods.com/cyberpunk2077/mods/18100) is supported as
+        an optional visual enhancement: drop its archive into "ManualDownloads" or pass
+        -IncludeValentinoHolsters.
 
     Since VR Port v0.2.0+, the core VR plugin (cyberpunkvrport.dll) embeds its own Lua host,
     redscript compiler (scc_lib.dll), archive mounter, TweakDB loader, input merger, and
-    Codeware replacements. If you pass -Minimal, the installer will ONLY install RED4ext and
-    the Cyberpunk VR Port itself (skipping the companion mods and their frameworks).
+    Codeware replacements. If you pass -Minimal (or -Standalone), the installer will ONLY
+    install RED4ext and the Cyberpunk VR Port itself.
 
     Everything it overwrites or retires is backed up first, and -Uninstall puts it all back.
 
@@ -39,13 +45,14 @@
     Folder to watch for browser downloads. Defaults to your Downloads folder.
 
 .PARAMETER SkipNexus
-    Install only the GitHub-hosted components and the VR port; print a checklist for the
-    three Nexus-only mods instead of fetching them.
+    Install only the GitHub-hosted components and the VR port; skip any optional Nexus mods.
 
 .PARAMETER Minimal
-    Install ONLY RED4ext (1.31.0+) and the Cyberpunk VR Port (0.2.1+), skipping all optional
-    companion mods (Visual Holsters, Equipment-EX, Nova Optics, More Occluders) and the
-    external frameworks they require (CET, redscript, TweakXL, ArchiveXL, Codeware, Input Loader).
+    Install ONLY RED4ext (1.31.0+) and the Cyberpunk VR Port (0.2.2+), skipping the external
+    modding frameworks (CET, redscript, TweakXL, ArchiveXL, Codeware, Input Loader).
+
+.PARAMETER IncludeValentinoHolsters
+    Optionally fetch or install Valentino Holsters (Nexus 18100) for custom holster models.
 
 .PARAMETER Uninstall
     Remove everything this script installed and restore the backed-up originals.
@@ -57,10 +64,10 @@
     .\Install-CyberpunkVR.ps1
 
 .EXAMPLE
-    .\Install-CyberpunkVR.ps1 -NexusApiKey "abc123..." -Force
+    .\Install-CyberpunkVR.ps1 -Minimal
 
 .EXAMPLE
-    .\Install-CyberpunkVR.ps1 -Minimal
+    .\Install-CyberpunkVR.ps1 -IncludeValentinoHolsters
 
 .EXAMPLE
     .\Install-CyberpunkVR.ps1 -Uninstall
@@ -77,7 +84,9 @@ param(
     [string] $NexusApiKey = $env:NEXUS_API_KEY,
     [string] $DownloadsPath,
     [switch] $SkipNexus,
+    [Alias('Standalone')]
     [switch] $Minimal,
+    [switch] $IncludeValentinoHolsters,
     [switch] $Uninstall,
     [switch] $Force
 )
@@ -88,7 +97,7 @@ $ProgressPreference = 'SilentlyContinue'   # Invoke-WebRequest is ~10x faster wi
 
 $ScriptRoot        = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $StateDirName      = '_CyberpunkVR_Installer'
-$UserAgent         = 'CyberpunkVR-Installer/2.0 (VRPort-0.2.1)'
+$UserAgent         = 'CyberpunkVR-Installer/2.2 (VRPort-0.2.2)'
 $NexusGame         = 'cyberpunk2077'
 $TargetGameVersion = '2.5'
 
@@ -107,7 +116,6 @@ $FrameworkGitHubComponents = @(
     @{ Name = 'ArchiveXL';          Repo = 'psiberx/cp2077-archive-xl';                Pattern = '^ArchiveXL-[\d.]+\.zip$' }
     @{ Name = 'Codeware';           Repo = 'psiberx/cp2077-codeware';                  Pattern = '^Codeware-[\d.]+\.zip$' }
     @{ Name = 'Input Loader';       Repo = 'jackhumbert/cyberpunk2077-input-loader';   Pattern = '^input_loader_v[\d.]+\.zip$' }
-    @{ Name = 'Equipment-EX';       Repo = 'psiberx/cp2077-equipment-ex';              Pattern = '^EquipmentEx-.*\.zip$' }
 )
 
 $GitHubComponents = if ($Minimal) {
@@ -119,26 +127,23 @@ $GitHubComponents = if ($Minimal) {
 # Installed last, after every dependency is in place.
 $VrPort = @{ Name = 'Cyberpunk VR Port'; Repo = 'dariulone/cyberpunk-vr-port'; Pattern = '^CyberpunkVRPort-.*\.zip$' }
 
-# Nexus-only companion mods required by the full setup in v0.2.1:
-# - Visible Bullets (22251) was removed in v0.1.9.
-# - More Occluders (Scripted v0.3) (33136) was added in v0.1.7.
-$NexusComponents = @(
+# In v0.2.2+, Visual Holsters, Nova Optics, Equipment-EX, and More Occluders are NO LONGER required!
+# More Occluders is explicitly dropped because it does not compile on CP2077 2.5 and breaks redscript.
+# Optional visual enhancement mods on Nexus:
+$OptionalNexusComponents = @(
     @{
-        Name         = 'Visual Holsters (Automatic Clothes Swap)'
-        ModId        = 21936
-        MatchPattern = '(?i)(visual.*holster|automatic.*clothes.*swap|(?<!\d)21936(?!\d))'
-    }
-    @{
-        Name         = 'Nova Optics'
-        ModId        = 29190
-        MatchPattern = '(?i)(nova.*optic|(?<!\d)29190(?!\d))'
-    }
-    @{
-        Name         = 'More Occluders (Scripted v0.3)'
-        ModId        = 33136
-        MatchPattern = '(?i)(more.*occluder|(?<!\d)33136(?!\d))'
+        Name         = 'Valentino Holsters'
+        ModId        = 18100
+        MatchPattern = '(?i)(valentino.*holster|(?<!\d)18100(?!\d))'
+        Optional     = $true
     }
 )
+
+$NexusComponents = if ($IncludeValentinoHolsters) {
+    @($OptionalNexusComponents)
+} else {
+    @()
+}
 
 # --------------------------------------------------------------------------------------
 # Console helpers
@@ -401,16 +406,18 @@ function Clear-LegacyVrPortInstall ($gameRoot, $state) {
         Write-Ok "Migrated vrik_calibration.ini from CyberpunkVR_Stereo to cyberpunkvrport\config"
     }
 
-    # 2. Folders retired in <= 0.2.1 that MUST NOT coexist with red4ext\plugins\cyberpunkvrport:
+    # 2. Folders retired in <= 0.2.2 that MUST NOT coexist with red4ext\plugins\cyberpunkvrport:
     #    - CyberpunkVR_Stereo: causes 0.2.0+ plugin to stay off and refuse to load.
     #    - CyberpunkVR_Hands: causes a crash at 0xFFFFFFFFFFFFFFFF due to double-hooking.
     #    - r6\tweaks\vrport & vrcigarette: now in red4ext\plugins\cyberpunkvrport\config\tweaks.
     #    - QuickBoot dev tool folders.
+    #    - r6\tweaks\VisualHolsters: superseded by 0.2.2 native immersive holsters.
     $retiredDirs = @(
         'red4ext\plugins\CyberpunkVR_Stereo',
         'red4ext\plugins\CyberpunkVR_Hands',
         'r6\tweaks\vrport',
         'r6\tweaks\vrcigarette',
+        'r6\tweaks\VisualHolsters',
         'red4ext\plugins\cyberpunkvrport\lua\CyberpunkVRPort_QuickBoot',
         'bin\x64\plugins\cyber_engine_tweaks\mods\CyberpunkVRPort_QuickBoot'
     )
@@ -424,7 +431,7 @@ function Clear-LegacyVrPortInstall ($gameRoot, $state) {
         }
     }
 
-    # 3. Loose files retired across 0.1.0 -> 0.2.1:
+    # 3. Loose files retired across 0.1.0 -> 0.2.2:
     $retiredFiles = @(
         'bin\x64\dxgi.dll',
         'red4ext\plugins\cyberpunkvrport\CyberpunkVR_Stereo.dll',
@@ -440,7 +447,32 @@ function Clear-LegacyVrPortInstall ($gameRoot, $state) {
         'archive\pc\mod\vrport_menu_panels.archive'
     )
 
+    # 4. Critical v0.2.1 -> v0.2.2 upgrade fix:
+    #    More Occluders (Scripted v0.3) was installed by earlier installers, but fails to
+    #    compile on Cyberpunk 2.5! In redscript, a single script failure disables all scripts.
+    #    The VR Port v0.2.2 does not require More Occluders and actively advises removing it.
+    $moreOccluderPaths = @(
+        'r6\scripts\MoreOccluders.reds',
+        'r6\scripts\MoreOccluders'
+    )
+    $pcModDir = Join-Path $gameRoot 'archive\pc\mod'
+    if (Test-Path -LiteralPath $pcModDir) {
+        foreach ($f in Get-ChildItem -LiteralPath $pcModDir -File -Filter '*MoreOccluder*' -Force -ErrorAction SilentlyContinue) {
+            $moreOccluderPaths += ("archive\pc\mod\" + $f.Name)
+        }
+    }
+
+    # 5. Visual Holsters cleanup (superseded by native immersive holsters in 0.2.2):
+    $visualHolsterPaths = @()
+    if (Test-Path -LiteralPath $pcModDir) {
+        foreach ($f in Get-ChildItem -LiteralPath $pcModDir -File -Filter '*VisualHolster*' -Force -ErrorAction SilentlyContinue) {
+            $visualHolsterPaths += ("archive\pc\mod\" + $f.Name)
+        }
+    }
+
     $cleaned = 0
+
+    # Clean legacy directories
     foreach ($relDir in ($retiredDirs | Select-Object -Unique)) {
         $n = Backup-AndRemoveItem $gameRoot $relDir $state
         if ($n -gt 0) {
@@ -448,10 +480,30 @@ function Clear-LegacyVrPortInstall ($gameRoot, $state) {
             $cleaned += $n
         }
     }
+
+    # Clean legacy loose files
     foreach ($relFile in ($retiredFiles | Select-Object -Unique)) {
         $n = Backup-AndRemoveItem $gameRoot $relFile $state
         if ($n -gt 0) {
             Write-Ok "Retired legacy file: $relFile (backed up)"
+            $cleaned += $n
+        }
+    }
+
+    # Clean More Occluders (vital fix for redscript on 2.5)
+    foreach ($item in ($moreOccluderPaths | Select-Object -Unique)) {
+        $n = Backup-AndRemoveItem $gameRoot $item $state
+        if ($n -gt 0) {
+            Write-Ok "Retired incompatible More Occluders: $item (backed up) - fixes redscript compilation failure on Cyberpunk 2.5!"
+            $cleaned += $n
+        }
+    }
+
+    # Clean Visual Holsters (prevents mesh clipping with native holsters)
+    foreach ($item in ($visualHolsterPaths | Select-Object -Unique)) {
+        $n = Backup-AndRemoveItem $gameRoot $item $state
+        if ($n -gt 0) {
+            Write-Ok "Retired superseded Visual Holsters: $item (backed up) - replaced by native immersive holsters in 0.2.2"
             $cleaned += $n
         }
     }
@@ -696,18 +748,19 @@ function Invoke-Uninstall ($gameRoot) {
         if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; $removed++ }
     }
 
-    # Also remove runtime-generated files created by CyberpunkVRPort 0.2.1+
+    # Also remove runtime-generated files created by CyberpunkVRPort 0.2.2+
     $runtimeFiles = @(
         'bin\x64\vrport.ini',
         'bin\x64\vrport-launcher.ini',
         'bin\x64\cyberpunkvrport.log',
-        'r6\input\CyberpunkVRPort_ScannerHud.xml'
+        'r6\input\CyberpunkVRPort_ScannerHud.xml',
+        'r6\input\CyberpunkVRPort_PhotoMode.xml'
     )
     foreach ($rf in $runtimeFiles) {
         $p = Join-Path $gameRoot $rf
         if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
     }
-    foreach ($rd in @('red4ext\plugins\cyberpunkvrport\log', 'red4ext\plugins\cyberpunkvrport\config\input\merged')) {
+    foreach ($rd in @('red4ext\plugins\cyberpunkvrport\log', 'red4ext\plugins\cyberpunkvrport\config\input\merged', 'red4ext\plugins\cyberpunkvrport\dxc')) {
         $p = Join-Path $gameRoot $rd
         if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue }
     }
@@ -770,7 +823,7 @@ function Invoke-Uninstall ($gameRoot) {
 # ======================================================================================
 
 Write-Host ""
-Write-Host "  Cyberpunk 2077 VR Port (v0.2.1+) - automatic installer" -ForegroundColor Magenta
+Write-Host "  Cyberpunk 2077 VR Port (v0.2.2+) - automatic installer" -ForegroundColor Magenta
 Write-Host "  https://www.nexusmods.com/cyberpunk2077/mods/30093" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -797,12 +850,12 @@ if ($Uninstall) { Invoke-Uninstall $GamePath }
 $version = Get-GameVersion $GamePath
 if ($version) {
     if ($version -match '^2\.5(\b|\.)') {
-        Write-Ok "Game version $version (matches Cyberpunk 2077 $TargetGameVersion required by VR Port 0.2.1)"
+        Write-Ok "Game version $version (matches Cyberpunk 2077 $TargetGameVersion required by VR Port 0.2.2)"
     } else {
-        Write-Note "Game version reads as $version. VR Port 0.2.1 requires Cyberpunk 2077 $TargetGameVersion (2.31 is no longer supported and the plugin will refuse to hook on mismatched builds)."
+        Write-Note "Game version reads as $version. VR Port 0.2.2 requires Cyberpunk 2077 $TargetGameVersion (2.31 is no longer supported and the plugin will refuse to hook on mismatched builds)."
     }
 } else {
-    Write-Note "Could not read the game version. VR Port 0.2.1 requires Cyberpunk 2077 $TargetGameVersion."
+    Write-Note "Could not read the game version. VR Port 0.2.2 requires Cyberpunk 2077 $TargetGameVersion."
 }
 
 # --- Writability check ------------------------------------------------------------------
@@ -814,32 +867,52 @@ try {
     Stop-WithError "Cannot write to $GamePath. Right-click this script and choose 'Run as administrator', or move the game out of Program Files."
 }
 
+# --- Check ManualDownloads for optional mods ---------------------------------------------
+$manualDir = Join-Path $ScriptRoot 'ManualDownloads'
+if (Test-Path $manualDir) {
+    foreach ($opt in $OptionalNexusComponents) {
+        $pattern = if ($opt.MatchPattern) { $opt.MatchPattern } else { [regex]::Escape(($opt.Name -split '[ (]')[0]) }
+        $hit = Get-ChildItem $manualDir -File -ErrorAction SilentlyContinue |
+               Where-Object { $_.Extension -match '(?i)^\.(zip|7z|rar)$' -and $_.BaseName -match $pattern } |
+               Select-Object -First 1
+        if ($hit -and ($NexusComponents | Where-Object { $_.ModId -eq $opt.ModId }).Count -eq 0) {
+            $NexusComponents += $opt
+        }
+    }
+}
+
 # --- Plan -------------------------------------------------------------------------------
 if ($Minimal) { $SkipNexus = $true }
 
 $usePremium = $false
-if (-not $SkipNexus -and $NexusApiKey) {
+if (-not $SkipNexus -and $NexusApiKey -and $NexusComponents.Count -gt 0) {
     Write-Step "Validating Nexus API key..."
     if (Test-NexusPremium $NexusApiKey) {
         $usePremium = $true
-        Write-Ok "Nexus Premium detected - the three Nexus-only mods will download automatically."
+        Write-Ok "Nexus Premium detected - optional Nexus mods will download automatically."
     } else {
-        Write-Note "That key works but the account isn't Premium. Nexus only allows API downloads for Premium members, so those three will go through your browser."
+        Write-Note "That key works but the account isn't Premium. Nexus only allows API downloads for Premium members, so those will go through your browser."
     }
 }
 
 Write-Head "Plan"
 if ($Minimal) {
-    Write-Host "   Mode: MINIMAL (Standalone VR Port 0.2.1+ with built-in Lua/redscript/Archive/Tweak host)" -ForegroundColor Yellow
+    Write-Host "   Mode: STANDALONE / MINIMAL (VR Port 0.2.2+ with built-in Lua/redscript/Archive/Tweak host, RED4ext only)" -ForegroundColor Yellow
+} else {
+    Write-Host "   Mode: FULL (VR Port 0.2.2+ with standard modding frameworks: CET, redscript, TweakXL, ArchiveXL, etc.)" -ForegroundColor Yellow
 }
 Write-Host "   From GitHub (fully automatic):" -ForegroundColor Gray
 $GitHubComponents | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor DarkGray }
 Write-Host "     - $($VrPort.Name)" -ForegroundColor DarkGray
-if (-not $SkipNexus) {
-    Write-Host "   From Nexus ($(if ($usePremium) { 'automatic' } else { 'ManualDownloads / browser handoff' })):" -ForegroundColor Gray
+
+if ($NexusComponents.Count -gt 0) {
+    Write-Host "   Optional Nexus mods ($(if ($usePremium) { 'automatic' } else { 'ManualDownloads / browser handoff' })):" -ForegroundColor Gray
     $NexusComponents | ForEach-Object { Write-Host "     - $($_.Name) (Mod $($_.ModId))" -ForegroundColor DarkGray }
+} else {
+    Write-Host "   Nexus companion mods: NONE required! (VR Port 0.2.2 ships native holsters & optics)" -ForegroundColor Green
 }
 Write-Host ""
+Write-Host "   Upgrading over v0.2.1 is seamless: incompatible More Occluders is retired and calibration is kept." -ForegroundColor DarkGray
 Write-Host "   Anything overwritten or retired is backed up. Re-run later to update; -Uninstall to revert." -ForegroundColor DarkGray
 
 Confirm-Continue "Ready to install"
@@ -864,8 +937,8 @@ New-Item -ItemType Directory -Path $state.BackupDir -Force | Out-Null
 $failed = @()
 
 try {
-    # --- Clean up legacy VR builds (<= 0.1.9) --------------------------------------------
-    Write-Head "Checking for legacy VR Port files"
+    # --- Clean up legacy VR builds & incompatible scripts ---------------------------------
+    Write-Head "Checking for legacy VR Port files & incompatible scripts"
     Clear-LegacyVrPortInstall $GamePath $state
 
     # --- GitHub dependencies -------------------------------------------------------------
@@ -875,9 +948,9 @@ try {
         catch { Write-Bad "$($c.Name) failed: $($_.Exception.Message)"; $failed += $c.Name }
     }
 
-    # --- Nexus-only mods ------------------------------------------------------------------
-    if (-not $SkipNexus) {
-        Write-Head "Installing Nexus-only mods"
+    # --- Optional Nexus mods --------------------------------------------------------------
+    if (-not $SkipNexus -and $NexusComponents.Count -gt 0) {
+        Write-Head "Installing optional Nexus mods"
         foreach ($c in $NexusComponents) {
             try {
                 if (-not (Install-NexusComponent $c $GamePath $state $workDir $NexusApiKey $usePremium)) { $failed += $c.Name }
@@ -901,6 +974,8 @@ Write-Head "Verifying"
 $expected = @(
     @{ Path = 'red4ext\RED4ext.dll';                                                    What = 'RED4ext loader' }
     @{ Path = 'red4ext\plugins\cyberpunkvrport\cyberpunkvrport.dll';                    What = 'VR Port core plugin (cyberpunkvrport.dll)' }
+    @{ Path = 'red4ext\plugins\cyberpunkvrport\dxc\dxcompiler.dll';                    What = 'DirectX shader compiler (single-pass stereo)' }
+    @{ Path = 'red4ext\plugins\cyberpunkvrport\dxc\dxil.dll';                          What = 'DirectX intermediate language library' }
     @{ Path = 'red4ext\plugins\cyberpunkvrport\redscript\scc_lib.dll';                  What = 'VR Port built-in redscript compiler' }
     @{ Path = 'red4ext\plugins\cyberpunkvrport\archive\cyberpunkvrport.archive';        What = 'VR Port packed assets archive' }
     @{ Path = 'red4ext\plugins\cyberpunkvrport\config\archive.yaml';                    What = 'VR Port archive manifest' }
@@ -916,7 +991,6 @@ if (-not $Minimal) {
         @{ Path = 'red4ext\plugins\TweakXL\TweakXL.dll';                                What = 'TweakXL' }
         @{ Path = 'red4ext\plugins\Codeware\Codeware.dll';                              What = 'Codeware' }
         @{ Path = 'red4ext\plugins\input_loader\input_loader.dll';                      What = 'Input Loader' }
-        @{ Path = 'r6\scripts\EquipmentEx\EquipmentEx.reds';                            What = 'Equipment-EX' }
     )
 }
 
@@ -926,10 +1000,16 @@ foreach ($e in $expected) {
     else { Write-Bad "missing: $($e.Path)  ($($e.What))"; $missing += $e.What }
 }
 
-# Verify that conflicting legacy plugin folders are NOT present
-foreach ($conflict in @('red4ext\plugins\CyberpunkVR_Stereo', 'red4ext\plugins\CyberpunkVR_Hands', 'bin\x64\dxgi.dll')) {
-    if (Test-Path (Join-Path $GamePath $conflict)) {
-        Write-Bad "conflicting legacy path still present: $conflict (remove it before launching!)"
+# Verify that conflicting legacy plugin folders or broken scripts are NOT present
+$conflicts = @(
+    @{ Path = 'red4ext\plugins\CyberpunkVR_Stereo'; Reason = 'causes VR plugin to stay off and refuse to load' }
+    @{ Path = 'red4ext\plugins\CyberpunkVR_Hands';  Reason = 'causes crash at 0xFFFFFFFFFFFFFFFF due to double-hooking' }
+    @{ Path = 'bin\x64\dxgi.dll';                   Reason = 'interferes with VR hooking' }
+    @{ Path = 'r6\scripts\MoreOccluders.reds';      Reason = 'incompatible with CP2077 2.5 and disables all redscript mods' }
+)
+foreach ($c in $conflicts) {
+    if (Test-Path (Join-Path $GamePath $c.Path)) {
+        Write-Bad "conflicting/broken path still present: $($c.Path) ($($c.Reason))"
     }
 }
 
@@ -948,15 +1028,20 @@ if ($failed.Count -gt 0) {
 }
 
 Write-Host ""
-Write-Host "  BEFORE YOU PLAY (VR Port 0.2.1+)" -ForegroundColor Yellow
+Write-Host "  BEFORE YOU PLAY (VR Port 0.2.2+)" -ForegroundColor Yellow
 Write-Host "   1. Start your OpenXR runtime (Virtual Desktop VDXR / SteamVR / Meta Quest Link) FIRST." -ForegroundColor Gray
 Write-Host "   2. Launch bin\x64\Cyberpunk2077.exe. In the pre-launch VR window, pick your headset" -ForegroundColor Gray
 Write-Host "      model and per-eye render resolution (leave DEBUG unchecked for normal play)." -ForegroundColor Gray
-Write-Host "   3. On first launch, the VR port automatically merges its optimal VR graphics/input/HUD" -ForegroundColor Gray
-Write-Host "      preset into UserSettings.json (saving a backup as UserSettings.pre-vr-*.json)" -ForegroundColor Gray
-Write-Host "      and guides you through weapon-hand, T-pose, and height calibration in the VR lobby." -ForegroundColor Gray
-Write-Host "   4. In game: Hold L3 + R3 (0.5 s) for the holographic VR menu, F10 / Insert for the" -ForegroundColor Gray
-Write-Host "      in-headset settings overlay, F7 to recenter, Home / Scroll Lock for Lua windows." -ForegroundColor Gray
+Write-Host "   3. What's new in v0.2.2:" -ForegroundColor Gray
+Write-Host "      - Single-Pass Stereo: G-buffer draws for both eyes in one view-instanced draw (~2.5 ms driver CPU save)." -ForegroundColor DarkGray
+Write-Host "      - Immersive Holsters: Weapons hang directly on V's body (belt, shoulders, thighs) and draw with grip." -ForegroundColor DarkGray
+Write-Host "      - VR Lobby Setup: Choose your weapon hand, height, T-pose, and new options (Hands Only avatar," -ForegroundColor DarkGray
+Write-Host "        left-handed bindings, and sprint mode)." -ForegroundColor DarkGray
+Write-Host "   4. In game controls:" -ForegroundColor Gray
+Write-Host "      - Hold L3 + R3 (0.5 s) for the holographic VR menu (holster slots, inventory, map, settings)." -ForegroundColor DarkGray
+Write-Host "      - F10 / Insert for the in-headset settings overlay (now rendered in both eyes)." -ForegroundColor DarkGray
+Write-Host "      - F7 to recenter HMD view." -ForegroundColor DarkGray
+Write-Host "      - Home / Scroll Lock for Lua mod windows." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "   Re-run this script any time to update. Run with -Uninstall to revert." -ForegroundColor DarkGray
 Write-Host ""
