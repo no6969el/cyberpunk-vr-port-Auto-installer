@@ -12,6 +12,28 @@ That's it. If your game lives under `Program Files`, right-click the `.bat` and 
 
 ---
 
+## What's new in this installer update
+
+- **Standalone is now the default.** A plain run installs only RED4ext and the VR port. Earlier versions also installed CET, redscript, TweakXL, ArchiveXL, Codeware and Input Loader unless you passed `-Minimal`; those are now opt-in with `-WithFrameworks`.
+- **No Nexus step at all.** The Valentino Holsters option and the Nexus download / browser handoff are gone, because VR Port `v0.2.3` builds those holsters in. Old switches (`-Minimal`, `-IncludeValentinoHolsters`, `-SkipNexus`, `-NexusApiKey`, `-DownloadsPath`) are still accepted, so existing shortcuts keep working.
+- **Frameworks you already have are left alone.** If an earlier full install put CET, redscript and the rest in your game folder, a standalone re-run keeps them and tells you so.
+- **Uninstall now covers every run.** Each run used to replace the install record, so after re-running the installer `-Uninstall` could leave earlier files behind and miss the backups of your original files. Re-runs now add to the record, and only true originals are backed up, so `-Uninstall` removes everything the installer ever added and puts your files back.
+
+---
+
+## What's new in VR Port v0.2.3
+
+A short summary; see the [release notes](https://github.com/dariulone/cyberpunk-vr-port/releases/tag/0.2.3) for the full list.
+
+- **Built-in holster gear**: a leg holster, a shoulder harness with an under-arm holster, and a chest knife sheath. *Valentino Holsters* is no longer needed.
+- **Pump shotguns** load several shells from the belt at once.
+- **Walkable mirrors**: V's reflection follows your body, and you can walk away with the mirror on.
+- **Scene camera smoothing** for cutscenes, adjustable in Settings.
+- **Launcher**: a VR Lobby switch and a typed-in resolution option.
+- Roomscale and body rotation are steadier by default, plus many fixes (shotgun sounds, VRIK in the VR training, ripperdoc tooltips, and more).
+
+---
+
 ## Standalone since v0.2.0
 
 The VR port runs standalone and needs **only RED4ext**. Its plugin carries its own Lua host, redscript compiler (`scc_lib.dll`), archive mounter, TweakDB loader, input merger and Codeware replacements, so Cyber Engine Tweaks, redscript, TweakXL, ArchiveXL, Codeware and Input Loader are no longer needed.
