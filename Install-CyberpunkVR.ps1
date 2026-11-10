@@ -1,35 +1,33 @@
 <#
 .SYNOPSIS
-    One-click installer for the Cyberpunk 2077 VR Port v0.2.2+ (Nexus mod 30093) and all of its
-    required dependencies for Cyberpunk 2077 v2.5.
+    One-click installer for the Cyberpunk 2077 VR Port v0.2.x (Nexus mod 30093) for
+    Cyberpunk 2077 v2.5.
 
 .DESCRIPTION
     Finds your Cyberpunk 2077 installation, cleans up legacy VR port files and incompatible scripts
-    (including More Occluders which fails to compile on Cyberpunk 2.5), downloads every dependency
-    published on GitHub (RED4ext and optional frameworks like CET, redscript, TweakXL, ArchiveXL,
-    Codeware, Input Loader) plus the VR port itself (v0.2.2+), and installs them into the game folder.
+    (including More Occluders, which fails to compile on Cyberpunk 2.5), downloads RED4ext and the
+    latest VR port release from GitHub, and installs them into the game folder.
 
-    Seamless upgrade from v0.2.1 (and older versions):
-      * Automatically removes and backs up More Occluders (r6\scripts\MoreOccluders.reds) because
-        it fails to compile on CP2077 2.5 and would otherwise disable all redscript mods.
-      * Retires superseded Visual Holsters files in favor of the VR Port's native immersive holsters.
+    Standalone by default:
+      Since VR Port v0.2.0 the plugin (cyberpunkvrport.dll) runs standalone. It carries its own
+      Lua host, redscript compiler (scc_lib.dll), archive mounter, TweakDB loader, input merger and
+      Codeware replacements, so RED4ext is its only requirement. CET, redscript, TweakXL,
+      ArchiveXL, Codeware and Input Loader are no longer needed; pass -WithFrameworks if your
+      other mods want them.
+
+    No Nexus downloads:
+      Visual Holsters, Equipment-EX, Nova Optics and More Occluders stopped being requirements in
+      v0.2.2, and v0.2.3 builds in the Valentino Holsters pieces (leg holster, shoulder harness,
+      chest knife sheath). Everything comes from GitHub; no Nexus account or browser is needed.
+
+    Seamless upgrade from earlier versions:
+      * Removes and backs up More Occluders (r6\scripts\MoreOccluders.reds), which fails to
+        compile on CP2077 2.5 and would otherwise disable every redscript mod.
+      * Retires superseded Visual Holsters files in favour of the port's built-in holsters.
       * Retires legacy folders (CyberpunkVR_Stereo, CyberpunkVR_Hands, bin\x64\dxgi.dll, etc.).
       * Preserves existing VRIK calibration and user settings (vrik_calibration.ini, vrport.ini).
-
-    Zero required Nexus downloads:
-      * In VR Port v0.2.2+, Visual Holsters, Equipment-EX, Nova Optics, and More Occluders are
-        NO LONGER REQUIREMENTS. The port includes native immersive holsters (weapons hang on V's
-        body and draw with natural reach), native optics, weapon placement badges, and belt slots.
-      * By default, the installer runs 100% automatically via GitHub with no browser popups or
-        Nexus account required.
-      * [Valentino Holsters](https://www.nexusmods.com/cyberpunk2077/mods/18100) is supported as
-        an optional visual enhancement: drop its archive into "ManualDownloads" or pass
-        -IncludeValentinoHolsters.
-
-    Since VR Port v0.2.0+, the core VR plugin (cyberpunkvrport.dll) embeds its own Lua host,
-    redscript compiler (scc_lib.dll), archive mounter, TweakDB loader, input merger, and
-    Codeware replacements. If you pass -Minimal (or -Standalone), the installer will ONLY
-    install RED4ext and the Cyberpunk VR Port itself.
+      * Leaves frameworks installed by an earlier full install in place; the port works with or
+        without them, and -Uninstall still removes them.
 
     Everything it overwrites or retires is backed up first, and -Uninstall puts it all back.
 
@@ -37,22 +35,14 @@
     Path to the Cyberpunk 2077 folder (the one containing bin\x64\Cyberpunk2077.exe).
     Auto-detected if omitted.
 
-.PARAMETER NexusApiKey
-    Nexus Mods personal API key (Premium accounts only). Defaults to the NEXUS_API_KEY
-    environment variable. Get one at https://next.nexusmods.com/settings/api-keys
-
-.PARAMETER DownloadsPath
-    Folder to watch for browser downloads. Defaults to your Downloads folder.
-
-.PARAMETER SkipNexus
-    Install only the GitHub-hosted components and the VR port; skip any optional Nexus mods.
+.PARAMETER WithFrameworks
+    Also install the general modding frameworks (Cyber Engine Tweaks, redscript, TweakXL,
+    ArchiveXL, Codeware, Input Loader). The VR port does not need them; use this only when other
+    mods you run do. Alias: -Full.
 
 .PARAMETER Minimal
-    Install ONLY RED4ext (1.31.0+) and the Cyberpunk VR Port (0.2.2+), skipping the external
-    modding frameworks (CET, redscript, TweakXL, ArchiveXL, Codeware, Input Loader).
-
-.PARAMETER IncludeValentinoHolsters
-    Optionally fetch or install Valentino Holsters (Nexus 18100) for custom holster models.
+    Kept for older command lines. Standalone (RED4ext + VR port only) is now the default, so this
+    does nothing unless combined with -WithFrameworks, which it overrides. Alias: -Standalone.
 
 .PARAMETER Uninstall
     Remove everything this script installed and restore the backed-up originals.
@@ -64,10 +54,10 @@
     .\Install-CyberpunkVR.ps1
 
 .EXAMPLE
-    .\Install-CyberpunkVR.ps1 -Minimal
+    .\Install-CyberpunkVR.ps1 -WithFrameworks
 
 .EXAMPLE
-    .\Install-CyberpunkVR.ps1 -IncludeValentinoHolsters
+    .\Install-CyberpunkVR.ps1 -GamePath "D:\Games\Cyberpunk 2077"
 
 .EXAMPLE
     .\Install-CyberpunkVR.ps1 -Uninstall
@@ -81,14 +71,18 @@
 [CmdletBinding()]
 param(
     [string] $GamePath,
-    [string] $NexusApiKey = $env:NEXUS_API_KEY,
-    [string] $DownloadsPath,
-    [switch] $SkipNexus,
+    [Alias('Full')]
+    [switch] $WithFrameworks,
     [Alias('Standalone')]
     [switch] $Minimal,
-    [switch] $IncludeValentinoHolsters,
     [switch] $Uninstall,
-    [switch] $Force
+    [switch] $Force,
+
+    # Retired options, still accepted so old shortcuts and command lines keep working.
+    [Parameter(DontShow)] [string] $NexusApiKey,
+    [Parameter(DontShow)] [string] $DownloadsPath,
+    [Parameter(DontShow)] [switch] $SkipNexus,
+    [Parameter(DontShow)] [switch] $IncludeValentinoHolsters
 )
 
 $ErrorActionPreference = 'Stop'
@@ -97,9 +91,9 @@ $ProgressPreference = 'SilentlyContinue'   # Invoke-WebRequest is ~10x faster wi
 
 $ScriptRoot        = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $StateDirName      = '_CyberpunkVR_Installer'
-$UserAgent         = 'CyberpunkVR-Installer/2.2 (VRPort-0.2.2)'
-$NexusGame         = 'cyberpunk2077'
+$UserAgent         = 'CyberpunkVR-Installer/2.3 (VRPort-0.2.3)'
 $TargetGameVersion = '2.5'
+$InstallFrameworks = $WithFrameworks -and -not $Minimal
 
 # --------------------------------------------------------------------------------------
 # What gets installed, in order. Every one of these archives extracts to the game root.
@@ -118,32 +112,18 @@ $FrameworkGitHubComponents = @(
     @{ Name = 'Input Loader';       Repo = 'jackhumbert/cyberpunk2077-input-loader';   Pattern = '^input_loader_v[\d.]+\.zip$' }
 )
 
-$GitHubComponents = if ($Minimal) {
-    $CoreGitHubComponents
-} else {
+$GitHubComponents = if ($InstallFrameworks) {
     $CoreGitHubComponents + $FrameworkGitHubComponents
+} else {
+    $CoreGitHubComponents
 }
 
 # Installed last, after every dependency is in place.
 $VrPort = @{ Name = 'Cyberpunk VR Port'; Repo = 'dariulone/cyberpunk-vr-port'; Pattern = '^CyberpunkVRPort-.*\.zip$' }
 
-# In v0.2.2+, Visual Holsters, Nova Optics, Equipment-EX, and More Occluders are NO LONGER required!
-# More Occluders is explicitly dropped because it does not compile on CP2077 2.5 and breaks redscript.
-# Optional visual enhancement mods on Nexus:
-$OptionalNexusComponents = @(
-    @{
-        Name         = 'Valentino Holsters'
-        ModId        = 18100
-        MatchPattern = '(?i)(valentino.*holster|(?<!\d)18100(?!\d))'
-        Optional     = $true
-    }
-)
-
-$NexusComponents = if ($IncludeValentinoHolsters) {
-    @($OptionalNexusComponents)
-} else {
-    @()
-}
+# No Nexus mods: Visual Holsters, Nova Optics, Equipment-EX and More Occluders stopped being
+# requirements in 0.2.2 (More Occluders does not even compile on 2.5), and 0.2.3 builds in the
+# Valentino Holsters pieces.
 
 # --------------------------------------------------------------------------------------
 # Console helpers
@@ -363,6 +343,20 @@ function Find-ArchiveRoot ($path) {
 # Legacy VR Port cleanup (upgrading from <= 0.1.9 to 0.2.1+)
 # --------------------------------------------------------------------------------------
 
+# Copies a game file into this run's backup folder before it is overwritten or removed.
+# Files an earlier run of this installer put there are not originals, so they are skipped:
+# -Uninstall deletes them anyway, and restoring them would leave them behind.
+# Returns $true when a backup was written.
+function Save-Original ($gameRoot, $relativePath, $state) {
+    if ($state.Owned.Contains($relativePath)) { return $false }
+    $bk = Join-Path $state.BackupDir $relativePath
+    if (Test-Path -LiteralPath $bk) { return $false }
+    $bkDir = Split-Path -Parent $bk
+    if (-not (Test-Path -LiteralPath $bkDir)) { New-Item -ItemType Directory -Path $bkDir -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $gameRoot $relativePath) -Destination $bk -Force
+    return $true
+}
+
 function Backup-AndRemoveItem ($gameRoot, $relativePath, $state) {
     $target = Join-Path $gameRoot $relativePath
     if (-not (Test-Path -LiteralPath $target)) { return 0 }
@@ -370,26 +364,13 @@ function Backup-AndRemoveItem ($gameRoot, $relativePath, $state) {
     $item = Get-Item -LiteralPath $target -Force
     if ($item.PSIsContainer) {
         $files = @(Get-ChildItem -LiteralPath $target -Recurse -File -Force -ErrorAction SilentlyContinue)
-        $count = 0
         foreach ($f in $files) {
-            $rel = $f.FullName.Substring($gameRoot.Length).TrimStart('\')
-            $bk  = Join-Path $state.BackupDir $rel
-            if (-not (Test-Path -LiteralPath $bk)) {
-                $bkDir = Split-Path -Parent $bk
-                if (-not (Test-Path -LiteralPath $bkDir)) { New-Item -ItemType Directory -Path $bkDir -Force | Out-Null }
-                Copy-Item -LiteralPath $f.FullName -Destination $bk -Force
-            }
-            $count++
+            Save-Original $gameRoot ($f.FullName.Substring($gameRoot.Length).TrimStart('\')) $state | Out-Null
         }
         Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
-        return $count
+        return $files.Count
     } else {
-        $bk = Join-Path $state.BackupDir $relativePath
-        if (-not (Test-Path -LiteralPath $bk)) {
-            $bkDir = Split-Path -Parent $bk
-            if (-not (Test-Path -LiteralPath $bkDir)) { New-Item -ItemType Directory -Path $bkDir -Force | Out-Null }
-            Copy-Item -LiteralPath $target -Destination $bk -Force
-        }
+        Save-Original $gameRoot $relativePath $state | Out-Null
         Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
         return 1
     }
@@ -527,19 +508,12 @@ function Copy-IntoGame ($sourceRoot, $gameRoot, $componentName, $state) {
         $targetDir = Split-Path -Parent $target
         if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
 
-        if (Test-Path $target) {
-            $backupTarget = Join-Path $state.BackupDir $relative
-            if (-not (Test-Path $backupTarget)) {
-                $backupDir = Split-Path -Parent $backupTarget
-                if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null }
-                Copy-Item -LiteralPath $target -Destination $backupTarget -Force
-                $backedUp++
-            }
-        }
+        if ((Test-Path -LiteralPath $target) -and (Save-Original $gameRoot $relative $state)) { $backedUp++ }
 
         Copy-Item -LiteralPath $f.FullName -Destination $target -Force
         $installed++
-        if ($state.Files -notcontains $relative) { $state.Files += $relative }
+        [void]$state.Files.Add($relative)
+        [void]$state.Owned.Add($relative)
     }
 
     $msg = "$componentName : $installed file(s) installed"
@@ -547,34 +521,11 @@ function Copy-IntoGame ($sourceRoot, $gameRoot, $componentName, $state) {
     Write-Ok $msg
 }
 
-# A few Nexus archives are just loose .archive / .reds files with no folder structure.
-# Put those where the game expects them before copying.
-function Repair-LooseFiles ($root) {
-    $markers = @('bin', 'r6', 'red4ext', 'archive', 'engine', 'mods', 'plugins')
-    $dirs = @(Get-ChildItem -LiteralPath $root -Directory -Force)
-    if ($dirs | Where-Object { $markers -contains $_.Name.ToLower() }) { return }
-
-    $moves = @(
-        @{ Ext = @('.archive', '.xl'); Dest = 'archive\pc\mod' }
-        @{ Ext = @('.reds');           Dest = 'r6\scripts' }
-        @{ Ext = @('.tweak', '.yaml'); Dest = 'r6\tweaks' }
-        @{ Ext = @('.xml');            Dest = 'r6\input' }
-    )
-    foreach ($m in $moves) {
-        $hits = @(Get-ChildItem -LiteralPath $root -File -Force | Where-Object { $m.Ext -contains $_.Extension.ToLower() })
-        if ($hits.Count -eq 0) { continue }
-        $dest = Join-Path $root $m.Dest
-        New-Item -ItemType Directory -Path $dest -Force | Out-Null
-        $hits | ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination $dest -Force }
-    }
-}
-
 function Install-Archive ($archivePath, $gameRoot, $componentName, $state, $workDir) {
     $stage = Join-Path $workDir ("stage_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
         Expand-AnyArchive $archivePath $stage
         $root = Find-ArchiveRoot $stage
-        Repair-LooseFiles $root
         Copy-IntoGame $root $gameRoot $componentName $state
     } finally {
         Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
@@ -595,140 +546,16 @@ function Install-FromGitHub ($component, $gameRoot, $state, $workDir) {
 }
 
 # --------------------------------------------------------------------------------------
-# Nexus Mods
-# --------------------------------------------------------------------------------------
-
-function Invoke-NexusApi ($path, $apiKey) {
-    $headers = @{ apikey = $apiKey; 'User-Agent' = $UserAgent; 'Accept' = 'application/json' }
-    return Invoke-RestMethod -Uri "https://api.nexusmods.com/v1/$path" -Headers $headers -TimeoutSec 60
-}
-
-function Test-NexusPremium ($apiKey) {
-    try {
-        $me = Invoke-NexusApi 'users/validate.json' $apiKey
-        return [bool]$me.is_premium
-    } catch {
-        return $false
-    }
-}
-
-function Get-NexusDownloadUrl ($modId, $apiKey) {
-    $files = Invoke-NexusApi "games/$NexusGame/mods/$modId/files.json?category=main" $apiKey
-    $candidates = @($files.files | Where-Object { $_.category_name -eq 'MAIN' })
-    if ($candidates.Count -eq 0) { $candidates = @($files.files) }
-    if ($candidates.Count -eq 0) { throw "No files listed for mod $modId." }
-
-    $primary = @($candidates | Where-Object { $_.is_primary }) | Select-Object -First 1
-    if (-not $primary) { $primary = $candidates | Sort-Object uploaded_timestamp -Descending | Select-Object -First 1 }
-
-    $links = Invoke-NexusApi "games/$NexusGame/mods/$modId/files/$($primary.file_id)/download_link.json" $apiKey
-    return @{ Url = $links[0].URI; FileName = $primary.file_name }
-}
-
-function Get-DownloadsFolder {
-    if ($DownloadsPath) { return $DownloadsPath }
-    try {
-        $p = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' -ErrorAction Stop).'{374DE290-123F-4565-9164-39C4925E467B}'
-        if ($p -and (Test-Path $p)) { return $p }
-    } catch { }
-    return (Join-Path $env:USERPROFILE 'Downloads')
-}
-
-function Get-ArchiveSnapshot ($folder) {
-    if (-not (Test-Path $folder)) { return @{} }
-    $map = @{}
-    foreach ($f in Get-ChildItem $folder -File -ErrorAction SilentlyContinue |
-                   Where-Object { $_.Extension -match '(?i)^\.(zip|7z|rar)$' }) {
-        $map[$f.FullName] = $f.LastWriteTimeUtc
-    }
-    return $map
-}
-
-function Wait-ForStableFile ($path) {
-    $last = -1
-    for ($i = 0; $i -lt 120; $i++) {
-        try { $size = (Get-Item $path -ErrorAction Stop).Length } catch { Start-Sleep 1; continue }
-        if ($size -gt 0 -and $size -eq $last) { return $true }
-        $last = $size
-        Start-Sleep 1
-    }
-    return $false
-}
-
-function Install-NexusComponent ($component, $gameRoot, $state, $workDir, $apiKey, $usePremium) {
-    $modUrl = "https://www.nexusmods.com/$NexusGame/mods/$($component.ModId)?tab=files"
-
-    # Path A: already sitting in ManualDownloads next to the script.
-    $manualDir = Join-Path $ScriptRoot 'ManualDownloads'
-    if (Test-Path $manualDir) {
-        $pattern = if ($component.MatchPattern) { $component.MatchPattern } else { [regex]::Escape(($component.Name -split '[ (]')[0]) }
-        $hit = Get-ChildItem $manualDir -File -ErrorAction SilentlyContinue |
-               Where-Object { $_.Extension -match '(?i)^\.(zip|7z|rar)$' -and $_.BaseName -match $pattern } |
-               Sort-Object LastWriteTimeUtc -Descending |
-               Select-Object -First 1
-        if ($hit) {
-            Write-Step "$($component.Name) - using $($hit.Name) from ManualDownloads"
-            Install-Archive $hit.FullName $gameRoot $component.Name $state $workDir
-            return $true
-        }
-    }
-
-    # Path B: Premium API key -> fully automatic.
-    if ($usePremium) {
-        try {
-            Write-Step "$($component.Name) - requesting download link from Nexus API..."
-            $dl = Get-NexusDownloadUrl $component.ModId $apiKey
-            $file = Join-Path $workDir $dl.FileName
-            Write-Step "$($component.Name) - downloading $($dl.FileName)"
-            Invoke-Download $dl.Url $file
-            Install-Archive $file $gameRoot $component.Name $state $workDir
-            return $true
-        } catch {
-            Write-Note "Nexus API download failed ($($_.Exception.Message)). Falling back to the browser."
-        }
-    }
-
-    # Path C: browser handoff.
-    $downloads = Get-DownloadsFolder
-    Write-Host ""
-    Write-Host "   $($component.Name)" -ForegroundColor White
-    Write-Host "   Opening: $modUrl" -ForegroundColor Gray
-    Write-Host "   In the browser: click the MAIN file's 'Manual Download', then 'Slow download'." -ForegroundColor Gray
-    Write-Host "   Watching for new archives in: $downloads" -ForegroundColor Gray
-
-    $before = Get-ArchiveSnapshot $downloads
-    try { Start-Process $modUrl } catch { Write-Note "Could not open a browser. Open the URL above manually." }
-
-    Write-Host ""
-    $answer = Read-Host "   Press Enter when the download has finished (or type S to skip this mod)"
-    if ($answer -match '^(s|skip)$') {
-        Write-Note "$($component.Name) skipped. Some VR features may not work without it."
-        return $false
-    }
-
-    $after = Get-ArchiveSnapshot $downloads
-    $new = @($after.Keys | Where-Object { -not $before.ContainsKey($_) -or $before[$_] -ne $after[$_] })
-
-    if ($new.Count -eq 0) {
-        Write-Note "No new archive appeared in $downloads."
-        $manual = Read-Host "   Paste the full path to the downloaded archive (or Enter to skip)"
-        if ([string]::IsNullOrWhiteSpace($manual)) { return $false }
-        $new = @($manual.Trim('"'))
-    }
-
-    $ok = $false
-    foreach ($n in $new) {
-        if (-not (Test-Path $n)) { Write-Note "Not found: $n"; continue }
-        Wait-ForStableFile $n | Out-Null
-        Install-Archive $n $gameRoot $component.Name $state $workDir
-        $ok = $true
-    }
-    return $ok
-}
-
-# --------------------------------------------------------------------------------------
 # Uninstall
 # --------------------------------------------------------------------------------------
+
+# Manifests list every backup folder, oldest first (BackupDirs). Manifests written before
+# that only had the one folder of their own run (BackupDir).
+function Get-ManifestBackupDirs ($manifest) {
+    if ($manifest.BackupDirs) { return @($manifest.BackupDirs) }
+    if ($manifest.BackupDir)  { return @($manifest.BackupDir) }
+    return @()
+}
 
 function Invoke-Uninstall ($gameRoot) {
     Assert-GameNotRunning
@@ -766,10 +593,15 @@ function Invoke-Uninstall ($gameRoot) {
     }
     Write-Ok "$removed file(s) removed"
 
-    if ($m.BackupDir -and (Test-Path $m.BackupDir)) {
-        $restored = 0
-        $backupRoot = (Resolve-Path $m.BackupDir).Path
-        foreach ($f in Get-ChildItem $backupRoot -Recurse -File -Force) {
+    # Newest backup first, so where two runs saved the same path the oldest copy (the true
+    # original) is written last and wins.
+    $backupDirs = @(Get-ManifestBackupDirs $m)
+    [array]::Reverse($backupDirs)
+    $restored = 0
+    foreach ($bd in $backupDirs) {
+        if (-not (Test-Path -LiteralPath $bd)) { continue }
+        $backupRoot = (Resolve-Path -LiteralPath $bd).Path
+        foreach ($f in Get-ChildItem -LiteralPath $backupRoot -Recurse -File -Force) {
             $rel = $f.FullName.Substring($backupRoot.Length).TrimStart('\')
             $target = Join-Path $gameRoot $rel
             $dir = Split-Path -Parent $target
@@ -777,8 +609,8 @@ function Invoke-Uninstall ($gameRoot) {
             Copy-Item -LiteralPath $f.FullName -Destination $target -Force
             $restored++
         }
-        Write-Ok "$restored original file(s) restored from backup"
     }
+    if ($restored -gt 0) { Write-Ok "$restored original file(s) restored from backup" }
 
     # Tidy up now-empty mod folders.
     foreach ($d in @('red4ext\plugins', 'bin\x64\plugins\cyber_engine_tweaks\mods', 'r6\scripts', 'r6\tweaks', 'r6\input', 'archive\pc\mod')) {
@@ -823,7 +655,7 @@ function Invoke-Uninstall ($gameRoot) {
 # ======================================================================================
 
 Write-Host ""
-Write-Host "  Cyberpunk 2077 VR Port (v0.2.2+) - automatic installer" -ForegroundColor Magenta
+Write-Host "  Cyberpunk 2077 VR Port (v0.2.x) - automatic installer" -ForegroundColor Magenta
 Write-Host "  https://www.nexusmods.com/cyberpunk2077/mods/30093" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -850,12 +682,12 @@ if ($Uninstall) { Invoke-Uninstall $GamePath }
 $version = Get-GameVersion $GamePath
 if ($version) {
     if ($version -match '^2\.5(\b|\.)') {
-        Write-Ok "Game version $version (matches Cyberpunk 2077 $TargetGameVersion required by VR Port 0.2.2)"
+        Write-Ok "Game version $version (matches Cyberpunk 2077 $TargetGameVersion required by VR Port 0.2.x)"
     } else {
-        Write-Note "Game version reads as $version. VR Port 0.2.2 requires Cyberpunk 2077 $TargetGameVersion (2.31 is no longer supported and the plugin will refuse to hook on mismatched builds)."
+        Write-Note "Game version reads as $version. VR Port 0.2.x requires Cyberpunk 2077 $TargetGameVersion (2.31 is no longer supported and the plugin will refuse to hook on mismatched builds)."
     }
 } else {
-    Write-Note "Could not read the game version. VR Port 0.2.2 requires Cyberpunk 2077 $TargetGameVersion."
+    Write-Note "Could not read the game version. VR Port 0.2.x requires Cyberpunk 2077 $TargetGameVersion."
 }
 
 # --- Writability check ------------------------------------------------------------------
@@ -867,71 +699,81 @@ try {
     Stop-WithError "Cannot write to $GamePath. Right-click this script and choose 'Run as administrator', or move the game out of Program Files."
 }
 
-# --- Check ManualDownloads for optional mods ---------------------------------------------
-$manualDir = Join-Path $ScriptRoot 'ManualDownloads'
-if (Test-Path $manualDir) {
-    foreach ($opt in $OptionalNexusComponents) {
-        $pattern = if ($opt.MatchPattern) { $opt.MatchPattern } else { [regex]::Escape(($opt.Name -split '[ (]')[0]) }
-        $hit = Get-ChildItem $manualDir -File -ErrorAction SilentlyContinue |
-               Where-Object { $_.Extension -match '(?i)^\.(zip|7z|rar)$' -and $_.BaseName -match $pattern } |
-               Select-Object -First 1
-        if ($hit -and ($NexusComponents | Where-Object { $_.ModId -eq $opt.ModId }).Count -eq 0) {
-            $NexusComponents += $opt
-        }
-    }
-}
-
 # --- Plan -------------------------------------------------------------------------------
-if ($Minimal) { $SkipNexus = $true }
-
-$usePremium = $false
-if (-not $SkipNexus -and $NexusApiKey -and $NexusComponents.Count -gt 0) {
-    Write-Step "Validating Nexus API key..."
-    if (Test-NexusPremium $NexusApiKey) {
-        $usePremium = $true
-        Write-Ok "Nexus Premium detected - optional Nexus mods will download automatically."
-    } else {
-        Write-Note "That key works but the account isn't Premium. Nexus only allows API downloads for Premium members, so those will go through your browser."
-    }
+if ($NexusApiKey -or $DownloadsPath -or $SkipNexus -or $IncludeValentinoHolsters) {
+    Write-Note "Nexus options are no longer used: nothing is downloaded from Nexus, and VR Port 0.2.3 builds in the Valentino Holsters pieces. Ignoring them."
+}
+if ($WithFrameworks -and $Minimal) {
+    Write-Note "-Minimal overrides -WithFrameworks: installing RED4ext and the VR port only."
 }
 
 Write-Head "Plan"
-if ($Minimal) {
-    Write-Host "   Mode: STANDALONE / MINIMAL (VR Port 0.2.2+ with built-in Lua/redscript/Archive/Tweak host, RED4ext only)" -ForegroundColor Yellow
+if ($InstallFrameworks) {
+    Write-Host "   Mode: VR port + modding frameworks (CET, redscript, TweakXL, ArchiveXL, Codeware, Input Loader)" -ForegroundColor Yellow
+    Write-Host "         The port does not need them; they are here for your other mods." -ForegroundColor DarkGray
 } else {
-    Write-Host "   Mode: FULL (VR Port 0.2.2+ with standard modding frameworks: CET, redscript, TweakXL, ArchiveXL, etc.)" -ForegroundColor Yellow
+    Write-Host "   Mode: STANDALONE (RED4ext + VR port; the port has its own Lua, redscript, archive and TweakDB host)" -ForegroundColor Yellow
 }
-Write-Host "   From GitHub (fully automatic):" -ForegroundColor Gray
+Write-Host "   From GitHub (fully automatic, no account needed):" -ForegroundColor Gray
 $GitHubComponents | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor DarkGray }
 Write-Host "     - $($VrPort.Name)" -ForegroundColor DarkGray
+Write-Host "   Nexus mods: none needed (holsters, optics and belt slots are built into the port)." -ForegroundColor Green
 
-if ($NexusComponents.Count -gt 0) {
-    Write-Host "   Optional Nexus mods ($(if ($usePremium) { 'automatic' } else { 'ManualDownloads / browser handoff' })):" -ForegroundColor Gray
-    $NexusComponents | ForEach-Object { Write-Host "     - $($_.Name) (Mod $($_.ModId))" -ForegroundColor DarkGray }
-} else {
-    Write-Host "   Nexus companion mods: NONE required! (VR Port 0.2.2 ships native holsters & optics)" -ForegroundColor Green
+if (-not $InstallFrameworks) {
+    $presentFrameworks = @(
+        @{ Name = 'Cyber Engine Tweaks'; Path = 'bin\x64\plugins\cyber_engine_tweaks.asi' }
+        @{ Name = 'redscript';           Path = 'engine\tools\scc.exe' }
+        @{ Name = 'TweakXL';             Path = 'red4ext\plugins\TweakXL\TweakXL.dll' }
+        @{ Name = 'ArchiveXL';           Path = 'red4ext\plugins\ArchiveXL\ArchiveXL.dll' }
+        @{ Name = 'Codeware';            Path = 'red4ext\plugins\Codeware\Codeware.dll' }
+        @{ Name = 'Input Loader';        Path = 'red4ext\plugins\input_loader\input_loader.dll' }
+    ) | Where-Object { Test-Path -LiteralPath (Join-Path $GamePath $_.Path) } | ForEach-Object { $_.Name }
+    if ($presentFrameworks.Count -gt 0) {
+        Write-Host "   Already installed and left as they are: $($presentFrameworks -join ', ')." -ForegroundColor DarkGray
+        Write-Host "   The port works with or without them; pass -WithFrameworks to update them too." -ForegroundColor DarkGray
+    }
 }
 Write-Host ""
-Write-Host "   Upgrading over v0.2.1 is seamless: incompatible More Occluders is retired and calibration is kept." -ForegroundColor DarkGray
+Write-Host "   Upgrading from an older release is seamless: retired files and More Occluders are removed, calibration is kept." -ForegroundColor DarkGray
 Write-Host "   Anything overwritten or retired is backed up. Re-run later to update; -Uninstall to revert." -ForegroundColor DarkGray
 
 Confirm-Continue "Ready to install"
 
 # --- State ------------------------------------------------------------------------------
-$stamp    = Get-Date -Format 'yyyyMMdd-HHmmss'
-$stateDir = Join-Path $GamePath $StateDirName
-$workDir  = Join-Path $env:TEMP "cpvr_$stamp"
+$stamp        = Get-Date -Format 'yyyyMMdd-HHmmss'
+$stateDir     = Join-Path $GamePath $StateDirName
+$manifestPath = Join-Path $stateDir 'manifest.json'
+$workDir      = Join-Path $env:TEMP "cpvr_$stamp"
 New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 New-Item -ItemType Directory -Path $workDir  -Force | Out-Null
 
+# Re-running over an earlier install carries its manifest forward, so -Uninstall still removes
+# what that run installed (frameworks from a full install, say) and restores its backups.
+$previous = $null
+if (Test-Path -LiteralPath $manifestPath) {
+    try { $previous = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json }
+    catch { Write-Note "Could not read the previous install manifest ($($_.Exception.Message)); starting a new one." }
+}
+
+$ci = [StringComparer]::OrdinalIgnoreCase
 $state = [ordered]@{
     InstalledAt = (Get-Date).ToString('s')
     GamePath    = $GamePath
     BackupDir   = (Join-Path $stateDir "backup-$stamp")
-    MinimalMode = [bool]$Minimal
-    Files       = @()
+    BackupDirs  = @()
+    Frameworks  = [bool]$InstallFrameworks
+    Files       = New-Object 'System.Collections.Generic.HashSet[string]' $ci
+    Owned       = New-Object 'System.Collections.Generic.HashSet[string]' $ci
     Versions    = [ordered]@{}
 }
+if ($previous) {
+    foreach ($f in @($previous.Files)) { if ($f) { [void]$state.Files.Add($f); [void]$state.Owned.Add($f) } }
+    $state.BackupDirs = @(Get-ManifestBackupDirs $previous)
+    if ($previous.Versions) {
+        foreach ($p in $previous.Versions.PSObject.Properties) { $state.Versions[$p.Name] = $p.Value }
+    }
+}
+$state.BackupDirs += $state.BackupDir
 New-Item -ItemType Directory -Path $state.BackupDir -Force | Out-Null
 
 $failed = @()
@@ -948,24 +790,26 @@ try {
         catch { Write-Bad "$($c.Name) failed: $($_.Exception.Message)"; $failed += $c.Name }
     }
 
-    # --- Optional Nexus mods --------------------------------------------------------------
-    if (-not $SkipNexus -and $NexusComponents.Count -gt 0) {
-        Write-Head "Installing optional Nexus mods"
-        foreach ($c in $NexusComponents) {
-            try {
-                if (-not (Install-NexusComponent $c $GamePath $state $workDir $NexusApiKey $usePremium)) { $failed += $c.Name }
-            } catch { Write-Bad "$($c.Name) failed: $($_.Exception.Message)"; $failed += $c.Name }
-        }
-    }
-
     # --- The VR port itself ----------------------------------------------------------------
     Write-Head "Installing the VR port"
     try { Install-FromGitHub $VrPort $GamePath $state $workDir }
     catch { Write-Bad "$($VrPort.Name) failed: $($_.Exception.Message)"; $failed += $VrPort.Name }
 
 } finally {
-    $state.Files = @($state.Files | Select-Object -Unique)
-    $state | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $stateDir 'manifest.json') -Encoding UTF8
+    # Drop this run's backup folder from the manifest if nothing needed backing up.
+    if (-not (Get-ChildItem -LiteralPath $state.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+        Remove-Item -LiteralPath $state.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
+        $state.BackupDirs = @($state.BackupDirs | Where-Object { $_ -ne $state.BackupDir })
+    }
+    $manifest = [ordered]@{
+        InstalledAt = $state.InstalledAt
+        GamePath    = $state.GamePath
+        BackupDirs  = @($state.BackupDirs)
+        Frameworks  = $state.Frameworks
+        Files       = @($state.Files | Sort-Object)
+        Versions    = $state.Versions
+    }
+    $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
     Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
@@ -983,7 +827,7 @@ $expected = @(
     @{ Path = 'bin\x64\openvr_api.dll';                                                 What = 'OpenVR API shim' }
 )
 
-if (-not $Minimal) {
+if ($InstallFrameworks) {
     $expected += @(
         @{ Path = 'bin\x64\plugins\cyber_engine_tweaks.asi';                            What = 'Cyber Engine Tweaks' }
         @{ Path = 'engine\tools\scc.exe';                                               What = 'redscript compiler' }
@@ -1019,24 +863,23 @@ if ($state.Versions.Count -gt 0) {
     Write-Host "   Installed versions:" -ForegroundColor Gray
     $state.Versions.GetEnumerator() | ForEach-Object { Write-Host ("     {0,-22} {1}" -f $_.Key, $_.Value) -ForegroundColor DarkGray }
 }
-Write-Host "   Backups: $($state.BackupDir)" -ForegroundColor DarkGray
+if (Test-Path -LiteralPath $state.BackupDir) {
+    Write-Host "   Backups: $($state.BackupDir)" -ForegroundColor DarkGray
+}
 
 if ($failed.Count -gt 0) {
     Write-Host ""
     Write-Note "These did not install: $($failed -join ', ')"
-    Write-Host "   Install them by hand (or place them in ManualDownloads), then re-run this script." -ForegroundColor Gray
+    Write-Host "   Check your connection (or set GITHUB_TOKEN if GitHub rate-limited you), then re-run this script." -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host "  BEFORE YOU PLAY (VR Port 0.2.2+)" -ForegroundColor Yellow
+Write-Host "  BEFORE YOU PLAY" -ForegroundColor Yellow
 Write-Host "   1. Start your OpenXR runtime (Virtual Desktop VDXR / SteamVR / Meta Quest Link) FIRST." -ForegroundColor Gray
 Write-Host "   2. Launch bin\x64\Cyberpunk2077.exe. In the pre-launch VR window, pick your headset" -ForegroundColor Gray
 Write-Host "      model and per-eye render resolution (leave DEBUG unchecked for normal play)." -ForegroundColor Gray
-Write-Host "   3. What's new in v0.2.2:" -ForegroundColor Gray
-Write-Host "      - Single-Pass Stereo: G-buffer draws for both eyes in one view-instanced draw (~2.5 ms driver CPU save)." -ForegroundColor DarkGray
-Write-Host "      - Immersive Holsters: Weapons hang directly on V's body (belt, shoulders, thighs) and draw with grip." -ForegroundColor DarkGray
-Write-Host "      - VR Lobby Setup: Choose your weapon hand, height, T-pose, and new options (Hands Only avatar," -ForegroundColor DarkGray
-Write-Host "        left-handed bindings, and sprint mode)." -ForegroundColor DarkGray
+Write-Host "   3. On first launch the VR lobby walks you through weapon hand, height, T-pose and avatar" -ForegroundColor Gray
+Write-Host "      options (Hands Only, left-handed bindings, sprint mode)." -ForegroundColor Gray
 Write-Host "   4. In game controls:" -ForegroundColor Gray
 Write-Host "      - Hold L3 + R3 (0.5 s) for the holographic VR menu (holster slots, inventory, map, settings)." -ForegroundColor DarkGray
 Write-Host "      - F10 / Insert for the in-headset settings overlay (now rendered in both eyes)." -ForegroundColor DarkGray
