@@ -106,3 +106,5 @@ If GitHub rate-limits you, set a `GITHUB_TOKEN` environment variable and re-run.
 ## Credits
 
 The VR port is created by **dariulone** — [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/30093) · [GitHub](https://github.com/dariulone/cyberpunk-vr-port). Original auto-installer by **no6969el**, updated for Cyberpunk 2077 v2.5 and VR Port v0.2.x.
+
+BarZ employed Claude to make this for you - [tipjar](https://tiptopjar.com/barz)
